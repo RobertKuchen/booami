@@ -1,0 +1,7 @@
+name	user	system	elapsed
+booami_predict	1.50	0.32	1.83	
+booami_sim	0.01	0.01	0.02	
+cv_boost_imputed	0.75	0.06	0.81	
+cv_boost_raw	0.75	0.03	0.78	
+impu_boost	0.32	0.03	0.36	
+simulate_booami_data	0.00	0.00	0.02	

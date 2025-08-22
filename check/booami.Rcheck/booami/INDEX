@@ -1,0 +1,12 @@
+booami_predict          Predict with booami models
+booami_sim              Example dataset for 'booami' (Gaussian, MAR)
+cv_boost_imputed        Cross-validated boosting on already-imputed
+                        data
+cv_boost_raw            Cross-Validated Component-Wise Gradient
+                        Boosting with Multiple Imputation Performed
+                        Inside Each Fold
+impu_boost              Component-Wise Gradient Boosting Across
+                        Multiply Imputed Datasets
+predict.booami          Predict from booami objects
+simulate_booami_data    Simulate a Booami Example Dataset with Missing
+                        Values

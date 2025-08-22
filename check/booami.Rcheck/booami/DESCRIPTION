@@ -1,0 +1,38 @@
+Package: booami
+Type: Package
+Title: Component-Wise Gradient Boosting After Multiple Imputations
+Version: 0.5.3
+Authors@R: 
+    c(
+      person("Robert", "Kuchen",
+             email = "rokuchen@uni-mainz.de",
+             role = c("aut", "cre"),
+             comment = c(ORCID = "0000-0003-4384-7511")
+      )
+    )
+Maintainer: Robert Kuchen <rokuchen@uni-mainz.de>
+Description: Implements component-wise gradient boosting for multiply imputed
+    datasets. The main contribution is MIBoost, a novel algorithm that enforces
+    uniform variable selection across imputations by minimizing an aggregated
+    loss function. For comparison, the package also supports per-dataset boosting
+    with pooling via estimate averaging or selection-frequency thresholding.
+    Includes a leakage-avoiding cross-validation framework that imputes training
+    and validation data separately to select the optimal number of boosting
+    iterations. Supports Gaussian and logistic loss.
+License: MIT + file LICENSE
+URL: https://arxiv.org/abs/2507.21807,
+        https://github.com/yourname/booami
+BugReports: https://github.com/yourname/booami/issues
+Encoding: UTF-8
+Depends: R (>= 4.0)
+Imports: mice, stats, utils
+Suggests: miceadds, Matrix, MASS, rmarkdown, testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE, roclets = c("collate", "namespace",
+        "rd"))
+RoxygenNote: 7.3.2
+LazyData: true
+NeedsCompilation: no
+Packaged: 2025-08-22 16:22:31 UTC; rokuchen
+Author: Robert Kuchen [aut, cre] (<https://orcid.org/0000-0003-4384-7511>)
+Built: R 4.4.1; ; 2025-08-22 16:22:35 UTC; windows

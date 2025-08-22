@@ -1,0 +1,459 @@
+pkgname <- "booami"
+source(file.path(R.home("share"), "R", "examples-header.R"))
+options(warn = 1)
+options(pager = "console")
+base::assign(".ExTimings", "booami-Ex.timings", pos = 'CheckExEnv')
+base::cat("name\tuser\tsystem\telapsed\n", file=base::get(".ExTimings", pos = 'CheckExEnv'))
+base::assign(".format_ptime",
+function(x) {
+  if(!is.na(x[4L])) x[1L] <- x[1L] + x[4L]
+  if(!is.na(x[5L])) x[2L] <- x[2L] + x[5L]
+  options(OutDec = '.')
+  format(x[1L:3L], digits = 7L)
+},
+pos = 'CheckExEnv')
+
+### * </HEADER>
+library('booami')
+
+base::assign(".oldSearch", base::search(), pos = 'CheckExEnv')
+base::assign(".old_wd", base::getwd(), pos = 'CheckExEnv')
+cleanEx()
+nameEx("booami_predict")
+### * booami_predict
+
+flush(stderr()); flush(stdout())
+
+base::assign(".ptime", proc.time(), pos = "CheckExEnv")
+### Name: booami_predict
+### Title: Predict with booami models
+### Aliases: booami_predict
+
+### ** Examples
+
+## Don't show: 
+if (requireNamespace("mice", quietly = TRUE) && requireNamespace("miceadds", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)({ # examplesIf
+## End(Don't show)
+## No test: 
+# 1) Fit on data WITH missing values
+set.seed(123)
+sim_tr <- simulate_booami_data(
+  n = 120, p = 12, p_inf = 3,
+  type = "gaussian",
+  miss = "MAR", miss_prop = 0.20
+)
+X_tr <- sim_tr$data[, 1:12]
+y_tr <- sim_tr$data$y
+
+fit <- cv_boost_raw(
+  X_tr, y_tr,
+  k = 2, mstop = 50, seed = 123,
+  impute_args    = list(m = 2, maxit = 1, printFlag = FALSE, seed = 1),
+  quickpred_args = list(method = "spearman", mincor = 0.30, minpuc = 0.60),
+  show_progress  = FALSE
+)
+
+# 2) Predict on a separate data set WITHOUT missing values (same p)
+sim_new <- simulate_booami_data(
+  n = 5, p = 12, p_inf = 3,
+  type = "gaussian",
+  miss = "MCAR", miss_prop = 0   # <- complete data with existing API
+)
+X_new <- sim_new$data[, 1:12, drop = FALSE]
+
+preds <- booami_predict(fit, X_new = X_new, family = "gaussian", type = "response")
+round(preds, 3)
+## End(No test)
+## Don't show: 
+}) # examplesIf
+## End(Don't show)
+
+
+
+base::assign(".dptime", (proc.time() - get(".ptime", pos = "CheckExEnv")), pos = "CheckExEnv")
+base::cat("booami_predict", base::get(".format_ptime", pos = 'CheckExEnv')(get(".dptime", pos = "CheckExEnv")), "\n", file=base::get(".ExTimings", pos = 'CheckExEnv'), append=TRUE, sep="\t")
+cleanEx()
+nameEx("booami_sim")
+### * booami_sim
+
+flush(stderr()); flush(stdout())
+
+base::assign(".ptime", proc.time(), pos = "CheckExEnv")
+### Name: booami_sim
+### Title: Example dataset for 'booami' (Gaussian, MAR)
+### Aliases: booami_sim
+### Keywords: datasets
+
+### ** Examples
+
+## \donttest{
+utils::data(booami_sim)
+dim(booami_sim)
+mean(colSums(is.na(booami_sim)) > 0)  # fraction of columns with any NAs
+head(attr(booami_sim, "true_beta"))
+attr(booami_sim, "informative")
+## }
+
+
+
+
+base::assign(".dptime", (proc.time() - get(".ptime", pos = "CheckExEnv")), pos = "CheckExEnv")
+base::cat("booami_sim", base::get(".format_ptime", pos = 'CheckExEnv')(get(".dptime", pos = "CheckExEnv")), "\n", file=base::get(".ExTimings", pos = 'CheckExEnv'), append=TRUE, sep="\t")
+cleanEx()
+nameEx("cv_boost_imputed")
+### * cv_boost_imputed
+
+flush(stderr()); flush(stdout())
+
+base::assign(".ptime", proc.time(), pos = "CheckExEnv")
+### Name: cv_boost_imputed
+### Title: Cross-validated boosting on already-imputed data
+### Aliases: cv_boost_imputed
+
+### ** Examples
+
+## Don't show: 
+if (requireNamespace("mice", quietly = TRUE) && requireNamespace("miceadds", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)({ # examplesIf
+## End(Don't show)
+## No test: 
+  set.seed(123)
+  utils::data(booami_sim)
+  k <- 2; M <- 2
+  n <- nrow(booami_sim); p <- ncol(booami_sim) - 1
+  folds <- sample(rep(seq_len(k), length.out = n))
+
+  X_train_list <- vector("list", k)
+  y_train_list <- vector("list", k)
+  X_val_list   <- vector("list", k)
+  y_val_list   <- vector("list", k)
+
+  for (cv in seq_len(k)) {
+    tr <- folds != cv
+    va <- !tr
+    dat_tr <- booami_sim[tr, , drop = FALSE]
+    dat_va <- booami_sim[va, , drop = FALSE]
+    pm_tr  <- mice::quickpred(dat_tr, method = "spearman", mincor = 0.30, minpuc = 0.60)
+    imp_tr <- mice::mice(dat_tr, m = M, predictorMatrix = pm_tr, maxit = 1, printFlag = FALSE)
+    imp_va <- mice::mice.mids(imp_tr, newdata = dat_va, maxit = 1, printFlag = FALSE)
+    X_train_list[[cv]] <- vector("list", M)
+    y_train_list[[cv]] <- vector("list", M)
+
+    X_val_list[[cv]]   <- vector("list", M)
+    y_val_list[[cv]]   <- vector("list", M)
+    for (m in seq_len(M)) {
+      tr_m <- mice::complete(imp_tr, m)
+      va_m <- mice::complete(imp_va, m)
+      X_train_list[[cv]][[m]] <- data.matrix(tr_m[, 1:p, drop = FALSE])
+      y_train_list[[cv]][[m]] <- tr_m$y
+      X_val_list[[cv]][[m]]   <- data.matrix(va_m[, 1:p, drop = FALSE])
+      y_val_list[[cv]][[m]]   <- va_m$y
+    }
+  }
+
+  pm_full  <- mice::quickpred(booami_sim, method = "spearman", mincor = 0.30, minpuc = 0.60)
+  imp_full <- mice::mice(booami_sim, m = M, predictorMatrix = pm_full, maxit = 1, printFlag = FALSE)
+  X_full <- lapply(seq_len(M),
+  function(m) data.matrix(
+  mice::complete(imp_full, m)[, 1:p, drop = FALSE]))
+  y_full <- lapply(seq_len(M), function(m) mice::complete(imp_full, m)$y)
+
+  res <- cv_boost_imputed(
+    X_train_list, y_train_list,
+    X_val_list,   y_val_list,
+    X_full,       y_full,
+    ny = 0.1, mstop = 50, type = "gaussian",
+    MIBoost = TRUE, pool = TRUE, center = "auto",
+    show_progress = FALSE
+  )
+## Don't show: 
+invisible(utils::capture.output(str(res)))
+## End(Don't show)
+## End(No test)
+
+## Not run: 
+##D   set.seed(2025)
+##D   utils::data(booami_sim)
+##D   k <- 5; M <- 10
+##D   n <- nrow(booami_sim); p <- ncol(booami_sim) - 1
+##D   folds <- sample(rep(seq_len(k), length.out = n))
+##D 
+##D   X_train_list <- vector("list", k)
+##D   y_train_list <- vector("list", k)
+##D   X_val_list   <- vector("list", k)
+##D   y_val_list   <- vector("list", k)
+##D   for (cv in seq_len(k)) {
+##D     tr <- folds != cv; va <- !tr
+##D     dat_tr <- booami_sim[tr, , drop = FALSE]
+##D     dat_va <- booami_sim[va, , drop = FALSE]
+##D     pm_tr  <- mice::quickpred(dat_tr, method = "spearman", mincor = 0.20, minpuc = 0.40)
+##D     imp_tr <- mice::mice(dat_tr, m = M, predictorMatrix = pm_tr, maxit = 5, printFlag = TRUE)
+##D     imp_va <- mice::mice.mids(imp_tr, newdata = dat_va, maxit = 1, printFlag = FALSE)
+##D     X_train_list[[cv]] <- vector("list", M)
+##D     y_train_list[[cv]] <- vector("list", M)
+##D     X_val_list[[cv]]   <- vector("list", M)
+##D     y_val_list[[cv]]   <- vector("list", M)
+##D     for (m in seq_len(M)) {
+##D       tr_m <- mice::complete(imp_tr, m); va_m <- mice::complete(imp_va, m)
+##D       X_train_list[[cv]][[m]] <- data.matrix(tr_m[, 1:p, drop = FALSE])
+##D       y_train_list[[cv]][[m]] <- tr_m$y
+##D       X_val_list[[cv]][[m]]   <- data.matrix(va_m[, 1:p, drop = FALSE])
+##D       y_val_list[[cv]][[m]]   <- va_m$y
+##D     }
+##D   }
+##D   pm_full  <- mice::quickpred(booami_sim, method = "spearman", mincor = 0.20, minpuc = 0.40)
+##D   imp_full <- mice::mice(booami_sim, m = M, predictorMatrix = pm_full, maxit = 5, printFlag = TRUE)
+##D   X_full <- lapply(seq_len(M),
+##D   function(m) data.matrix(mice::complete(imp_full, m)[, 1:p, drop = FALSE]))
+##D   y_full <- lapply(seq_len(M),
+##D   function(m) mice::complete(imp_full, m)$y)
+##D 
+##D   res_heavy <- cv_boost_imputed(
+##D     X_train_list, y_train_list,
+##D     X_val_list,   y_val_list,
+##D     X_full,       y_full,
+##D     ny = 0.1, mstop = 250, type = "gaussian",
+##D     MIBoost = TRUE, pool = TRUE, center = "auto",
+##D     show_progress = TRUE
+##D   )
+##D   str(res_heavy)
+## End(Not run)
+## Don't show: 
+}) # examplesIf
+## End(Don't show)
+
+
+
+base::assign(".dptime", (proc.time() - get(".ptime", pos = "CheckExEnv")), pos = "CheckExEnv")
+base::cat("cv_boost_imputed", base::get(".format_ptime", pos = 'CheckExEnv')(get(".dptime", pos = "CheckExEnv")), "\n", file=base::get(".ExTimings", pos = 'CheckExEnv'), append=TRUE, sep="\t")
+cleanEx()
+nameEx("cv_boost_raw")
+### * cv_boost_raw
+
+flush(stderr()); flush(stdout())
+
+base::assign(".ptime", proc.time(), pos = "CheckExEnv")
+### Name: cv_boost_raw
+### Title: Cross-Validated Component-Wise Gradient Boosting with Multiple
+###   Imputation Performed Inside Each Fold
+### Aliases: cv_boost_raw
+
+### ** Examples
+
+## Don't show: 
+if (requireNamespace("mice", quietly = TRUE) && requireNamespace("miceadds", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)({ # examplesIf
+## End(Don't show)
+## No test: 
+  utils::data(booami_sim)
+  X <- booami_sim[, 1:25]
+  y <- booami_sim[, 26]
+
+  res <- cv_boost_raw(
+    X = X, y = y,
+    k = 2, seed = 123,
+    impute_args    = list(m = 2, maxit = 1, printFlag = FALSE, seed = 1),
+    quickpred_args = list(mincor = 0.30, minpuc = 0.60),
+    mstop = 50,
+    show_progress = FALSE
+  )
+  ## Don't show: 
+invisible(utils::capture.output(str(res)))
+## End(Don't show)
+
+  # Partial custom imputation method override
+  meth <- c(y = "pmm", X1 = "pmm")
+  res2 <- cv_boost_raw(
+    X = X, y = y,
+    k = 2, seed = 123,
+    impute_args    = list(m = 2, maxit = 1, printFlag = FALSE, seed = 456),
+    quickpred_args = list(mincor = 0.30, minpuc = 0.60),
+    mstop = 50,
+    impute_method  = meth,
+    show_progress = FALSE
+  )
+  ## Don't show: 
+invisible(utils::capture.output(str(res2)))
+## End(Don't show)
+## End(No test)
+## Don't show: 
+}) # examplesIf
+## End(Don't show)
+
+
+
+base::assign(".dptime", (proc.time() - get(".ptime", pos = "CheckExEnv")), pos = "CheckExEnv")
+base::cat("cv_boost_raw", base::get(".format_ptime", pos = 'CheckExEnv')(get(".dptime", pos = "CheckExEnv")), "\n", file=base::get(".ExTimings", pos = 'CheckExEnv'), append=TRUE, sep="\t")
+cleanEx()
+nameEx("impu_boost")
+### * impu_boost
+
+flush(stderr()); flush(stdout())
+
+base::assign(".ptime", proc.time(), pos = "CheckExEnv")
+### Name: impu_boost
+### Title: Component-Wise Gradient Boosting Across Multiply Imputed
+###   Datasets
+### Aliases: impu_boost
+
+### ** Examples
+
+## Don't show: 
+if (requireNamespace("mice", quietly = TRUE) && requireNamespace("miceadds", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)({ # examplesIf
+## End(Don't show)
+## No test: 
+
+  set.seed(123)
+  utils::data(booami_sim)
+
+  M <- 2
+  n <- nrow(booami_sim)
+  x_cols <- grepl("^X\\d+$", names(booami_sim))
+
+  tr_idx <- sample(seq_len(n), floor(0.8 * n))
+  dat_tr <- booami_sim[tr_idx, , drop = FALSE]
+  dat_va <- booami_sim[-tr_idx, , drop = FALSE]
+
+  pm_tr <- mice::quickpred(dat_tr, method = "spearman",
+                           mincor = 0.30, minpuc = 0.60)
+
+  imp_tr <- mice::mice(dat_tr, m = M, predictorMatrix = pm_tr,
+                       maxit = 1, printFlag = FALSE)
+  imp_va <- mice::mice.mids(imp_tr, newdata = dat_va, maxit = 1, printFlag = FALSE)
+
+  X_list      <- vector("list", M)
+  y_list      <- vector("list", M)
+  X_list_val  <- vector("list", M)
+  y_list_val  <- vector("list", M)
+  for (m in seq_len(M)) {
+    tr_m <- mice::complete(imp_tr, m)
+    va_m <- mice::complete(imp_va, m)
+    X_list[[m]]     <- data.matrix(tr_m[, x_cols, drop = FALSE])
+    y_list[[m]]     <- tr_m$y
+    X_list_val[[m]] <- data.matrix(va_m[, x_cols, drop = FALSE])
+    y_list_val[[m]] <- va_m$y
+  }
+
+  fit <- impu_boost(
+    X_list, y_list,
+    X_list_val = X_list_val, y_list_val = y_list_val,
+    ny = 0.1, mstop = 50, type = "gaussian",
+    MIBoost = TRUE, pool = TRUE, center = "auto"
+  )
+
+  which.min(fit$CV_error)
+  head(fit$BETA)
+  fit$INT
+## End(No test)
+
+## Not run: 
+##D # Heavier demo (more imputations and iterations; for local runs)
+##D 
+##D   set.seed(2025)
+##D   utils::data(booami_sim)
+##D 
+##D   M <- 10
+##D   n <- nrow(booami_sim)
+##D   x_cols <- grepl("^X\\d+$", names(booami_sim))
+##D 
+##D   tr_idx <- sample(seq_len(n), floor(0.8 * n))
+##D   dat_tr <- booami_sim[tr_idx, , drop = FALSE]
+##D   dat_va <- booami_sim[-tr_idx, , drop = FALSE]
+##D 
+##D   pm_tr <- mice::quickpred(dat_tr, method = "spearman",
+##D                            mincor = 0.20, minpuc = 0.40)
+##D 
+##D   imp_tr <- mice::mice(dat_tr, m = M, predictorMatrix = pm_tr,
+##D                        maxit = 5, printFlag = TRUE)
+##D   imp_va <- mice::mice.mids(imp_tr, newdata = dat_va, maxit = 1, printFlag = FALSE)
+##D 
+##D   X_list      <- vector("list", M)
+##D   y_list      <- vector("list", M)
+##D   X_list_val  <- vector("list", M)
+##D   y_list_val  <- vector("list", M)
+##D   for (m in seq_len(M)) {
+##D     tr_m <- mice::complete(imp_tr, m)
+##D     va_m <- mice::complete(imp_va, m)
+##D     X_list[[m]]     <- data.matrix(tr_m[, x_cols, drop = FALSE])
+##D     y_list[[m]]     <- tr_m$y
+##D     X_list_val[[m]] <- data.matrix(va_m[, x_cols, drop = FALSE])
+##D     y_list_val[[m]] <- va_m$y
+##D   }
+##D 
+##D   fit_heavy <- impu_boost(
+##D     X_list, y_list,
+##D     X_list_val = X_list_val, y_list_val = y_list_val,
+##D     ny = 0.1, mstop = 250, type = "gaussian",
+##D     MIBoost = TRUE, pool = TRUE, center = "auto"
+##D   )
+##D   str(fit_heavy)
+## End(Not run)
+## Don't show: 
+}) # examplesIf
+## End(Don't show)
+
+
+
+base::assign(".dptime", (proc.time() - get(".ptime", pos = "CheckExEnv")), pos = "CheckExEnv")
+base::cat("impu_boost", base::get(".format_ptime", pos = 'CheckExEnv')(get(".dptime", pos = "CheckExEnv")), "\n", file=base::get(".ExTimings", pos = 'CheckExEnv'), append=TRUE, sep="\t")
+cleanEx()
+nameEx("simulate_booami_data")
+### * simulate_booami_data
+
+flush(stderr()); flush(stdout())
+
+base::assign(".ptime", proc.time(), pos = "CheckExEnv")
+### Name: simulate_booami_data
+### Title: Simulate a Booami Example Dataset with Missing Values
+### Aliases: simulate_booami_data
+
+### ** Examples
+
+set.seed(42)
+sim <- simulate_booami_data(
+  n = 200, p = 15, p_inf = 4, rho = 0.25,
+  type = "gaussian", miss = "MAR", miss_prop = 0.20
+)
+d <- sim$data
+dim(d)
+mean(colSums(is.na(d)) > 0)    # fraction of columns with any NAs
+head(attr(d, "true_beta"))
+attr(d, "informative")
+
+# Example with block-diagonal correlation and protected MAR drivers
+sim2 <- simulate_booami_data(
+  n = 150, p = 12, p_inf = 3, rho = 0.40, rho_noise = 0.10,
+  corr_structure = "blockdiag", miss = "MAR", miss_prop = 0.30,
+  mar_drivers = c(1, 2), keep_mar_drivers = TRUE
+)
+colSums(is.na(sim2$data))[1:4]
+
+# Binary outcome example
+sim3 <- simulate_booami_data(
+  n = 100, p = 10, p_inf = 2, rho = 0.2,
+  type = "logistic", miss = "MCAR", miss_prop = 0.15
+)
+table(sim3$data$y, useNA = "ifany")
+
+## No test: 
+utils::data(booami_sim)
+dim(booami_sim)
+head(attr(booami_sim, "true_beta"))
+attr(booami_sim, "informative")
+## End(No test)
+
+
+
+
+base::assign(".dptime", (proc.time() - get(".ptime", pos = "CheckExEnv")), pos = "CheckExEnv")
+base::cat("simulate_booami_data", base::get(".format_ptime", pos = 'CheckExEnv')(get(".dptime", pos = "CheckExEnv")), "\n", file=base::get(".ExTimings", pos = 'CheckExEnv'), append=TRUE, sep="\t")
+### * <FOOTER>
+###
+cleanEx()
+options(digits = 7L)
+base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
+grDevices::dev.off()
+###
+### Local variables: ***
+### mode: outline-minor ***
+### outline-regexp: "\\(> \\)?### [*]+" ***
+### End: ***
+quit('no')
