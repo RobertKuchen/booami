@@ -1,10 +1,10 @@
 citHeader("To cite booami in publications use:")
 
 bibentry(
-  bibtype = "Misc",
-  title   = "booami: Boosting with Multiply Imputed Data",
-  author  = c(person("Your", "Name")),
+  bibtype = "Manual",
+  title   = "booami: Component-Wise Gradient Boosting After Multiple Imputations",
+  author  = person("Robert", "Kuchen"),
   year    = "2025",
   note    = "R package version 0.5.3",
-  url     = "https://CRAN.R-project.org/package=booami"
+  url     = "https://arxiv.org/abs/2507.21807"
 )

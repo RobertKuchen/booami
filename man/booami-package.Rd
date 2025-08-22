@@ -106,8 +106,8 @@ variable selection after multiple imputation.
 Useful links:
 \itemize{
   \item \url{https://arxiv.org/abs/2507.21807}
-  \item \url{https://github.com/yourname/booami}
-  \item Report bugs at \url{https://github.com/yourname/booami/issues}
+  \item \url{https://github.com/RobertKuchen/booami}
+  \item Report bugs at \url{https://github.com/RobertKuchen/booami/issues}
 }
 
 }

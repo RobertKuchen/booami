@@ -3,3 +3,4 @@
 ^README\.md$
 ^NEWS\.md$
 ^build_manual\.R$
+^cran-comments\.md$
